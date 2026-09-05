@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --border: 240 5.9% 90%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+  }
+
+  html, body {
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+    width: 100%;
+    position: relative;
+  }
+
+  body {
+    @apply bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 antialiased min-h-screen;
+    transition: background-color 300ms cubic-bezier(0.4, 0, 0.2, 1), color 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* 300ms Smooth Color Transitions for theme toggling */
+.transition-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
+
+/* 2D Sticky Table Scrollbars & Cell Controls */
+.grid-scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: #a1a1aa transparent;
+}
+
+.dark .grid-scroll-container {
+  scrollbar-color: #3f3f46 transparent;
+}
+
+.grid-scroll-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.grid-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.grid-scroll-container::-webkit-scrollbar-thumb {
+  background-color: #a1a1aa;
+  border-radius: 4px;
+}
+
+.dark .grid-scroll-container::-webkit-scrollbar-thumb {
+  background-color: #3f3f46;
+}
+
+/* Cell Micro-Interactions: 120ms active scale-95 */
+.grid-cell {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+
+.grid-cell:active {
+  transform: scale(0.95);
+}
+
+/* Safe Area Inset utilities for notch and home bar */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
