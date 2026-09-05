@@ -7,12 +7,16 @@ const api = axios.create({
   },
 });
 
-// Request Interceptor: Attach Bearer token from localStorage 'token'
+// Request Interceptor: Attach Bearer token and user timezone
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    const userTz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : null;
+    if (userTz) {
+      config.headers['X-Timezone'] = userTz;
     }
     return config;
   },

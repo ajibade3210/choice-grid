@@ -19,7 +19,11 @@ export const HabitGrid = ({
   const cellRefs = useRef({});
 
   // Cycle states: '' -> 'X' -> '.' -> ''
-  const handleCellClick = (dateStr, habitId, currentState, targetElement) => {
+  const handleCellClick = (dateStr, habitId) => {
+    // Disallow marking future dates
+    if (todayStr && dateStr > todayStr) return;
+
+    const currentState = gridData[dateStr]?.[habitId] || '';
     let nextState = '';
     if (!currentState || currentState === '') {
       nextState = 'X';
@@ -29,12 +33,11 @@ export const HabitGrid = ({
       nextState = '';
     }
 
-    const rect = targetElement?.getBoundingClientRect ? targetElement.getBoundingClientRect() : null;
-    onCellToggle(dateStr, habitId, nextState, rect);
+    onCellToggle(dateStr, habitId, nextState);
   };
 
   // 2D Roving Tabindex & Keyboard Navigation
-  const handleKeyDown = (e, dayIndex, habitIndex, dateStr, habitId, cellState) => {
+  const handleKeyDown = (e, dayIndex, habitIndex, dateStr, habitId) => {
     let nextDay = dayIndex;
     let nextHabit = habitIndex;
 
@@ -58,7 +61,9 @@ export const HabitGrid = ({
       case ' ':
       case 'Enter':
         e.preventDefault();
-        handleCellClick(dateStr, habitId, cellState, e.currentTarget);
+        if (!todayStr || dateStr <= todayStr) {
+          handleCellClick(dateStr, habitId);
+        }
         return;
       default:
         return;
@@ -81,9 +86,6 @@ export const HabitGrid = ({
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             Daily Habits ({habits.length})
-          </span>
-          <span className="text-[11px] text-zinc-400 dark:text-zinc-500 hidden sm:inline">
-            • 44px touch targets • Arrow navigation
           </span>
         </div>
 
@@ -149,8 +151,9 @@ export const HabitGrid = ({
               const dayPadded = String(dayNum).padStart(2, '0');
               const dateStr = `${year}-${paddedMonth}-${dayPadded}`;
               const isToday = dateStr === todayStr;
+              const isFuture = Boolean(todayStr && dateStr > todayStr);
               const dayScore = getDayScore(gridData, dateStr, habits);
-              const isPerfectDay = habits.length > 0 && dayScore === habits.length;
+              const isPerfectDay = !isFuture && habits.length > 0 && dayScore === habits.length;
 
               return (
                 <tr
@@ -158,6 +161,8 @@ export const HabitGrid = ({
                   className={`transition-colors ${
                     isToday
                       ? 'bg-zinc-100/70 dark:bg-zinc-800/40 font-semibold'
+                      : isFuture
+                      ? 'opacity-40 select-none bg-zinc-50/20 dark:bg-zinc-950/20'
                       : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/20'
                   }`}
                 >
@@ -166,6 +171,8 @@ export const HabitGrid = ({
                     className={`sticky left-0 z-10 px-2.5 py-1 text-center text-xs font-mono border-r border-zinc-200 dark:border-zinc-800 transition-colors ${
                       isToday
                         ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-bold'
+                        : isFuture
+                        ? 'bg-zinc-50/50 dark:bg-zinc-900/60 text-zinc-400 dark:text-zinc-600'
                         : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400'
                     }`}
                   >
@@ -207,45 +214,56 @@ export const HabitGrid = ({
                       >
                         <button
                           type="button"
+                          disabled={isFuture}
+                          aria-disabled={isFuture ? 'true' : undefined}
                           ref={(el) => {
                             if (el) {
                               cellRefs.current[`${dayIndex}-${habitIndex}`] = el;
                             }
                           }}
                           role="gridcell"
-                          tabIndex={isFocused ? 0 : -1}
-                          aria-label={`Day ${dayNum}, ${habit.name}: ${statusText}`}
-                          aria-pressed={ariaPressed}
-                          onClick={(e) =>
-                            handleCellClick(dateStr, habit.id, cellState, e.currentTarget)
+                          tabIndex={isFocused && !isFuture ? 0 : -1}
+                          aria-label={
+                            isFuture
+                              ? `Day ${dayNum}, ${habit.name}: Future date (cannot be marked)`
+                              : `Day ${dayNum}, ${habit.name}: ${statusText}`
                           }
-                          onFocus={() => setFocusedCoords([dayIndex, habitIndex])}
+                          aria-pressed={isFuture ? 'false' : ariaPressed}
+                          onClick={() => handleCellClick(dateStr, habit.id)}
+                          onFocus={() => !isFuture && setFocusedCoords([dayIndex, habitIndex])}
                           onKeyDown={(e) =>
                             handleKeyDown(
                               e,
                               dayIndex,
                               habitIndex,
                               dateStr,
-                              habitId,
-                              cellState
+                              habit.id
                             )
                           }
-                          className={`grid-cell w-full min-w-[44px] min-h-[44px] rounded-lg flex items-center justify-center border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-zinc-600 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-zinc-950 ${
-                            cellState === 'X'
-                              ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-zinc-900 dark:border-zinc-100 shadow-sm'
-                              : cellState === '.'
-                              ? 'bg-zinc-100 dark:bg-zinc-800/60 border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400'
-                              : 'bg-transparent border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-400 dark:hover:border-zinc-600'
+                          className={`grid-cell w-full min-w-[44px] min-h-[44px] rounded-lg flex items-center justify-center border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-zinc-600 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-zinc-950 select-none transition-all duration-150 ${
+                            isFuture
+                              ? 'bg-zinc-100/60 dark:bg-zinc-800/30 border-zinc-200/60 dark:border-zinc-800/40 cursor-not-allowed text-zinc-300 dark:text-zinc-600'
+                              : `cursor-pointer active:scale-95 ${
+                                  cellState === 'X'
+                                    ? 'bg-emerald-600 dark:bg-emerald-500 text-white border-emerald-600 dark:border-emerald-500 shadow-sm'
+                                    : cellState === '.'
+                                    ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400'
+                                    : 'bg-transparent border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-400 dark:hover:border-zinc-600'
+                                }`
                           }`}
-                          title={`${habit.name} on Day ${dayNum}: ${statusText}`}
+                          title={
+                            isFuture
+                              ? `Future date (Day ${dayNum}) cannot be marked`
+                              : `${habit.name} on Day ${dayNum}: ${statusText}`
+                          }
                         >
-                          {cellState === 'X' && (
-                            <span className="text-base font-black tracking-tight select-none">
+                          {!isFuture && cellState === 'X' && (
+                            <span className="text-base font-black tracking-tight select-none pointer-events-none">
                               X
                             </span>
                           )}
-                          {cellState === '.' && (
-                            <span className="text-2xl font-black leading-none select-none">
+                          {!isFuture && cellState === '.' && (
+                            <span className="text-2xl font-black leading-none select-none pointer-events-none">
                               •
                             </span>
                           )}
@@ -258,14 +276,16 @@ export const HabitGrid = ({
                   <td className="p-1 text-center text-xs font-mono">
                     <span
                       className={`inline-block px-2 py-1 rounded-md text-[11px] font-semibold ${
-                        isPerfectDay
-                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                        isFuture
+                          ? 'text-zinc-300 dark:text-zinc-700 select-none'
+                          : isPerfectDay
+                          ? 'bg-emerald-600 text-white dark:bg-emerald-500 shadow-sm'
                           : dayScore > 0
                           ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
                           : 'text-zinc-400 dark:text-zinc-600'
                       }`}
                     >
-                      {dayScore}/{habits.length}
+                      {isFuture ? '—' : `${dayScore}/${habits.length}`}
                     </span>
                   </td>
                 </tr>

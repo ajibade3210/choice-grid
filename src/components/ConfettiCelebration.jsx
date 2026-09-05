@@ -21,7 +21,7 @@ export const ConfettiCelebration = ({ celebrationState, onResetCelebration }) =>
   }, []);
 
   useEffect(() => {
-    if (!celebrationState || !celebrationState.isNewRecord) return;
+    if (!celebrationState) return;
 
     const streak = celebrationState.currentStreak || celebrationState.newStreak || 1;
 
@@ -29,17 +29,34 @@ export const ConfettiCelebration = ({ celebrationState, onResetCelebration }) =>
     playWin(0.5);
 
     // 2. Show celebratory toast
-    toast.success(`New Record! ${streak} Day Streak!`, {
-      duration: 4000,
-      icon: '🏆',
-      style: {
-        background: '#18181b',
-        color: '#f4f4f5',
-        border: '1px solid #27272a',
-        fontWeight: 'bold',
-        fontSize: '14px',
-      },
-    });
+    if (celebrationState.isNewRecord) {
+      toast.success(`New Record! ${streak} Day Streak!`, {
+        duration: 4000,
+        icon: '🏆',
+        style: {
+          background: '#18181b',
+          color: '#f4f4f5',
+          border: '1px solid #27272a',
+          fontWeight: 'bold',
+          fontSize: '14px',
+        },
+      });
+    } else {
+      toast.success(
+        `All ${celebrationState.totalTasks || ''} habits completed for the day! 🎉`,
+        {
+          duration: 4000,
+          icon: '🏆',
+          style: {
+            background: '#18181b',
+            color: '#f4f4f5',
+            border: '1px solid #27272a',
+            fontWeight: 'bold',
+            fontSize: '14px',
+          },
+        }
+      );
+    }
 
     // 3. Exactly 4 seconds confetti timer
     const timer = setTimeout(() => {
@@ -51,7 +68,7 @@ export const ConfettiCelebration = ({ celebrationState, onResetCelebration }) =>
     return () => clearTimeout(timer);
   }, [celebrationState, onResetCelebration]);
 
-  if (!celebrationState?.isNewRecord) return null;
+  if (!celebrationState) return null;
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">

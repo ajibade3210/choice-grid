@@ -20,7 +20,6 @@ import StreakCard from '../components/StreakCard';
 import HabitGrid from '../components/HabitGrid';
 import ChartSkeleton from '../components/ChartSkeleton';
 import BottomNav from '../components/BottomNav';
-import CellConfettiCanvas from '../components/CellConfettiCanvas';
 import { hapticCellToggle, hapticCelebrate } from '../utils/haptics';
 import { DEFAULT_HABITS } from '../utils/storage';
 
@@ -32,7 +31,7 @@ const HabitSettings = lazy(() => import('../components/HabitSettings'));
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const TIMEZONE = 'Africa/Lagos';
+const TIMEZONE = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
 
 export const ChoiceGridPage = ({ user, theme }) => {
   const [habits, setHabits] = useState(DEFAULT_HABITS);
@@ -50,8 +49,13 @@ export const ChoiceGridPage = ({ user, theme }) => {
   const [celebrationState, setCelebrationState] = useState(null);
   const [activeTab, setActiveTab] = useState('grid');
 
-  // Confetti Canvas Ref
-  const confettiRef = useRef(null);
+  // Grid Data & Request Sequence Refs for atomic updates & race-condition prevention
+  const gridDataRef = useRef({});
+  useEffect(() => {
+    gridDataRef.current = gridData;
+  }, [gridData]);
+
+  const cellSeqRef = useRef({});
 
   // Pull-to-Refresh State
   const [pullDistance, setPullDistance] = useState(0);
@@ -83,6 +87,7 @@ export const ChoiceGridPage = ({ user, theme }) => {
         setCelebrationState({
           isNewRecord: true,
           currentStreak: newStats.currentStreak,
+          totalTasks: habits.length,
         });
         hapticCelebrate();
       }
@@ -91,7 +96,7 @@ export const ChoiceGridPage = ({ user, theme }) => {
     } finally {
       setIsStatsLoading(false);
     }
-  }, []);
+  }, [habits.length]);
 
   // Fetch month logs helper
   const fetchMonthLogs = useCallback(async (y, m) => {
@@ -229,80 +234,130 @@ export const ChoiceGridPage = ({ user, theme }) => {
     fetchMonthLogs(newY, newM);
   };
 
-  // Cell Toggle Handler with Confetti Burst + Haptics
+  // Cell Toggle Handler: Cycle '' -> 'X' -> '.' -> ''
   const handleCellToggle = useCallback(
-    async (dateStr, habitId, nextState, domRect) => {
-      const previousState = gridData[dateStr]?.[habitId] || '';
-
-      // Trigger cell-level confetti burst and haptic vibration when toggling to 'X'
-      if (nextState === 'X') {
-        if (domRect && confettiRef.current) {
-          confettiRef.current.triggerCellBurst(domRect);
-        }
-        hapticCellToggle();
+    async (dateStr, habitId, explicitNextState) => {
+      // Disallow marking future dates
+      if (todayStr && dateStr > todayStr) {
+        return;
       }
 
-      // 1. Optimistic UI update
-      setGridData((prev) => ({
-        ...prev,
-        [dateStr]: {
-          ...(prev[dateStr] || {}),
-          [habitId]: nextState,
-        },
-      }));
+      const currentDay = gridDataRef.current[dateStr] || {};
+      const currentState = currentDay[habitId] || '';
 
-      // 2. Build full log for payload
-      const currentDayLog = {
-        ...(gridData[dateStr] || {}),
+      let nextState = explicitNextState;
+      if (nextState === undefined) {
+        if (!currentState || currentState === '') {
+          nextState = 'X';
+        } else if (currentState === 'X') {
+          nextState = '.';
+        } else {
+          nextState = '';
+        }
+      }
+
+      // Check if day was already all complete
+      const wasAllCompleted =
+        habits.length > 0 && habits.every((h) => currentDay[h.id] === 'X');
+
+      // 1. Optimistic UI update immediately
+      const nextDay = {
+        ...currentDay,
         [habitId]: nextState,
       };
 
+      gridDataRef.current = {
+        ...gridDataRef.current,
+        [dateStr]: nextDay,
+      };
+      setGridData({ ...gridDataRef.current });
+
+      // Haptic feedback on 'X' toggle
+      if (nextState === 'X') {
+        hapticCellToggle();
+      }
+
+      // Check if all habits for this day are now completed (e.g. 5/5 tasks done)
+      const isNowAllCompleted =
+        habits.length > 0 && habits.every((h) => nextDay[h.id] === 'X');
+
+      if (!wasAllCompleted && isNowAllCompleted) {
+        setCelebrationState({
+          isNewRecord: false,
+          totalTasks: habits.length,
+        });
+        hapticCelebrate();
+      }
+
+      // 2. Track request sequence per cell to prevent race conditions
+      const cellKey = `${dateStr}:${habitId}`;
+      const reqSeq = (cellSeqRef.current[cellKey] || 0) + 1;
+      cellSeqRef.current[cellKey] = reqSeq;
+
       try {
         const res = await api.post(`/api/logs/${dateStr}`, {
-          log: currentDayLog,
+          log: { [habitId]: nextState },
           maxHabits: habits.length,
         });
 
-        const returnedLog = res.data.log;
-        if (returnedLog) {
-          setGridData((prev) => ({
-            ...prev,
+        // Only sync response if no newer toggle occurred while request was in-flight
+        if (cellSeqRef.current[cellKey] === reqSeq && res.data?.log) {
+          gridDataRef.current = {
+            ...gridDataRef.current,
             [dateStr]: {
-              ...(prev[dateStr] || {}),
-              ...returnedLog,
+              ...(gridDataRef.current[dateStr] || {}),
+              ...res.data.log,
             },
-          }));
+          };
+          setGridData({ ...gridDataRef.current });
         }
 
         await fetchStats();
       } catch (error) {
         console.error('[Log] Update failed:', error);
-        toast.error('Failed to save choice. Reverting...');
-        setGridData((prev) => ({
-          ...prev,
-          [dateStr]: {
-            ...(prev[dateStr] || {}),
-            [habitId]: previousState,
-          },
-        }));
+        // Only revert if no newer toggle occurred for this cell
+        if (cellSeqRef.current[cellKey] === reqSeq) {
+          toast.error('Failed to save choice. Reverting...');
+          gridDataRef.current = {
+            ...gridDataRef.current,
+            [dateStr]: {
+              ...(gridDataRef.current[dateStr] || {}),
+              [habitId]: currentState,
+            },
+          };
+          setGridData({ ...gridDataRef.current });
+        }
       }
     },
-    [gridData, habits.length, fetchStats]
+    [habits, fetchStats, todayStr]
   );
 
   const handleQuickLogSuccess = useCallback(
     (logDate, updatedLog) => {
-      setGridData((prev) => ({
-        ...prev,
+      const prevDay = gridDataRef.current[logDate] || {};
+      const wasAllCompleted =
+        habits.length > 0 && habits.every((h) => prevDay[h.id] === 'X');
+
+      gridDataRef.current = {
+        ...gridDataRef.current,
         [logDate]: {
-          ...(prev[logDate] || {}),
+          ...prevDay,
           ...updatedLog,
         },
-      }));
-      hapticCelebrate();
+      };
+      setGridData({ ...gridDataRef.current });
+
+      if (!wasAllCompleted) {
+        setCelebrationState({
+          isNewRecord: false,
+          totalTasks: habits.length,
+        });
+        hapticCelebrate();
+      }
+
       fetchStats();
     },
-    [fetchStats]
+    [habits, fetchStats]
   );
 
   const handleSettingsUpdated = useCallback(
@@ -341,9 +396,6 @@ export const ChoiceGridPage = ({ user, theme }) => {
           </div>
         </div>
       )}
-
-      {/* Singleton Cell Confetti Canvas */}
-      <CellConfettiCanvas ref={confettiRef} />
 
       {/* Confetti & Sound Celebration Overlay */}
       <Suspense fallback={null}>

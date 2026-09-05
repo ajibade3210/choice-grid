@@ -9,7 +9,7 @@ import api from '../api/axios';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const TIMEZONE = 'Africa/Lagos';
+const TIMEZONE = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
 
 export const QuickLogButton = ({ habits, onLogSuccess, disabled }) => {
   const [isLoading, setIsLoading] = useState(false);

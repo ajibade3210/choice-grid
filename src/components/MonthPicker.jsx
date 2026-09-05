@@ -25,8 +25,15 @@ export const MonthPicker = ({ selectedDate, onMonthChange }) => {
         <h1 className="text-xl sm:text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
           {formattedTitle}
         </h1>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-          Click to toggle: X (Done) · • (Missed)
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+          <span>Click to toggle:</span>
+          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+            X (Done)
+          </span>
+          <span className="text-zinc-300 dark:text-zinc-700">·</span>
+          <span className="font-semibold text-rose-600 dark:text-rose-400">
+            • (Missed)
+          </span>
         </p>
       </div>
 

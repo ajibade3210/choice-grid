@@ -47,9 +47,9 @@ export const StreakCard = ({ stats, isLoading }) => {
             {Number(animatedCurrentStreak) === 1 ? 'day' : 'days'}
           </span>
         </div>
-        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400" title={`Local timezone: ${typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'Local Time'}`}>
           <Clock className="w-3 h-3" />
-          <span>Africa/Lagos</span>
+          <span>{typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'Local Time'}</span>
         </div>
       </div>
 

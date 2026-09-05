@@ -5,14 +5,14 @@ import timezone from 'dayjs/plugin/timezone';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-export const TIMEZONE = 'Africa/Lagos';
+export const TIMEZONE = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
 
-// Get today's dayjs object in Africa/Lagos
+// Get today's dayjs object in user's timezone
 export const getTodayInLagos = () => {
   return dayjs().tz(TIMEZONE);
 };
 
-// Returns date string in YYYY-MM-DD for a given date in Africa/Lagos
+// Returns date string in YYYY-MM-DD for a given date in user's timezone
 export const formatLagosDate = (date) => {
   return dayjs(date).tz(TIMEZONE).format('YYYY-MM-DD');
 };
