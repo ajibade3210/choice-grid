@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { trackEvent } from '../utils/analytics';
 
 export class ErrorBoundary extends Component {
   constructor(props) {
@@ -13,6 +14,7 @@ export class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('[ErrorBoundary] Uncaught application error:', error, errorInfo);
+    trackEvent('react_error', { error: error?.message || 'Unknown error' });
   }
 
   handleReload = () => {

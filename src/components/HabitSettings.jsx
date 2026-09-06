@@ -18,6 +18,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import api from '../api/axios';
 import { DEFAULT_HABITS } from '../utils/storage';
+import { trackEvent } from '../utils/analytics';
 
 // Sortable Habit Row Item
 const SortableHabitItem = ({ habit, index, onRemove, isSaving, canRemove }) => {
@@ -114,6 +115,7 @@ export const HabitSettings = ({ isOpen, onClose, habits, onSettingsUpdated }) =>
       });
 
       toast.success('Habit settings saved!');
+      trackEvent('settings_saved', { habitCount: newHabitsArray.length });
       if (onSettingsUpdated) {
         onSettingsUpdated(res.data.habits);
       }

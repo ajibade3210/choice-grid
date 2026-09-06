@@ -128,42 +128,6 @@ server {
 
 ---
 
-### Option B: Vercel Deployment
-
-Create `vercel.json` in the root of `choice-grid/`:
-
-```json
-{
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    }
-  ]
-}
-```
-
-Deploy with Vercel CLI:
-
-```bash
-vercel --prod
-```
-
----
-
 ## 5. Verification Checklist
 
 Before opening traffic:

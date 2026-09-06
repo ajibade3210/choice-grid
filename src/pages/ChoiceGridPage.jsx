@@ -22,6 +22,7 @@ import ChartSkeleton from '../components/ChartSkeleton';
 import BottomNav from '../components/BottomNav';
 import { hapticCellToggle, hapticCelebrate } from '../utils/haptics';
 import { DEFAULT_HABITS } from '../utils/storage';
+import { trackEvent } from '../utils/analytics';
 
 // Code Splitting: Lazy load heavy dependencies
 const ScoreChart = lazy(() => import('../components/ScoreChart'));
@@ -90,6 +91,7 @@ export const ChoiceGridPage = ({ user, theme }) => {
           totalTasks: habits.length,
         });
         hapticCelebrate();
+        trackEvent('record_broken', { streak: newStats.currentStreak });
       }
     } catch (err) {
       console.error('[Stats] Fetch failed:', err.message);
@@ -277,6 +279,9 @@ export const ChoiceGridPage = ({ user, theme }) => {
         hapticCellToggle();
       }
 
+      // Track habit toggle
+      trackEvent('habit_toggle', { habitId, newState: nextState });
+
       // Check if all habits for this day are now completed (e.g. 5/5 tasks done)
       const isNowAllCompleted =
         habits.length > 0 && habits.every((h) => nextDay[h.id] === 'X');
@@ -354,6 +359,8 @@ export const ChoiceGridPage = ({ user, theme }) => {
         });
         hapticCelebrate();
       }
+
+      trackEvent('quicklog_used');
 
       fetchStats();
     },
